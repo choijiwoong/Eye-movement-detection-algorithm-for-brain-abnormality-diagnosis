@@ -87,7 +87,6 @@ cv::Mat eyeDetectorRoi::detect(cv::Mat image) {
         centers.push_back(std::move(cv::Point(eyes[j].x + eyes[j].width / 2, eyes[j].y + eyes[j].height / 2)));
     const auto avg_center = cv::Point((centers[0].x + centers[1].x) / 2, (centers[1].y + centers[1].y) / 2);
     const int d = get_distance_euclid(centers[0], centers[1]);
-    const float T = 21;//ROI 기준 길이비 상수
 
     auto start_point = cv::Point(avg_center.x - 18 * d / T, avg_center.y - 12 * d / T);//use of T
     auto end_point = cv::Point(avg_center.x + 18 * d / T, avg_center.y + 12 * d / T);
@@ -109,56 +108,8 @@ eyeDirectionFinder::eyeDirectionFinder(std::string eyeCascadePath) {
     eyeCascade.load(eyeCascadePath);
 }
 
-int eyeDirectionFinder::adjustDetectedEyes(std::vector<cv::Rect>& eyes, cv::Mat& image) {
-    int ltCount = 0;
-    int rtCount = 0;
-    for (int i = 0; i < eyes.size(); i++) {
-        cv::Rect& eye = eyes.at(i);
-
-        //1. ignore y's outerline as much as IGNORE_RATIO
-        if (eye.y < image.rows / IGNORE_RATIO || eye.y>image.rows / IGNORE_RATIO * (IGNORE_RATIO - 1)) {
-            eyes.erase(eyes.begin() + i);
-            i--;//삭제로 인한 shift고려
-            std::cout << "removed 1 eye by IGNORE_RATIO\n";
-            continue;
-        }
-
-        //2. erase same roi
-        if (eye.x < image.cols / 2) {
-            if (rtCount >= 1) {
-                eyes.erase(eyes.begin() + i);
-                i--;
-                std::cout << "removed 1 eye by DUPLICATION\n";
-            }
-            rtCount++;
-        } else {
-            if (ltCount >= 1) {
-                eyes.erase(eyes.begin() + i);
-                i--;
-                std::cout << "removed 1 eye by same ROI\n";
-            }
-            ltCount++;
-        }
-    
-        //3. make roi to 2:3 ratio
-        eye.y -= eye.width / 3 - eye.height / 2;
-        eye.height += 2 * (eye.width / 3 - eye.height / 2);
-    }
-    //4. use only one eye
-    if (eyes.size() == 1) {
-        eyes.push_back(eyes[0]);
-    }
-
-    //5. exception (no eyes)
-    if (eyes.size() != 2) {
-        std::cout << "****FAIL****" << eyes.size() << "\n";
-        return -1;
-    }
-    return 0;
-}
-
 cv::Point eyeDirectionFinder::getCenterPoint(const cv::Mat& roi) {
-    cv::Point roiCenter=cv::Point(-1,0);//-1 for express error
+    cv::Point roiCenter = cv::Point(-1, 0);//-1 for express error
 
     int count = 0;
     for (int i = 0; i < roi.rows; i++) {
@@ -175,8 +126,9 @@ cv::Point eyeDirectionFinder::getCenterPoint(const cv::Mat& roi) {
         roiCenter.x += 1;//remove -1 for express error
         roiCenter.x /= count;
         roiCenter.y /= count;
-    } else if(count == 0) {
-        std::cerr << "*****Cannot calculate center point*****\n";
+    }
+    else if (count == 0) {
+        //std::cerr << "*****Cannot calculate center point*****\n";
         //-1,0 use x for express error
     }
     return roiCenter;
@@ -205,26 +157,17 @@ int eyeDirectionFinder::findDirectionByVector(const cv::Point& pupilVector) {
 }
 
 std::string eyeDirectionFinder::findDirection(cv::Mat image) {
-    std::cout << "\n\nFinding direction of eyes...\n";
     std::vector<cv::Rect> eyes;
-
-    //1. opencv eye detection
-    eyeCascade.detectMultiScale(image, eyes, 1.01, 2, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(image.rows / MIN_EYE_RATIO, image.cols / MIN_EYE_RATIO));
-    
-    //2. adjust error of detected eye
-    if (adjustDetectedEyes(eyes, image) !=0) {
-        std::cerr << "*****Fail! We cannot detect eye properly. We finally detect" << eyes.size() << " eyes*****\n";
-        //printImage("failed", image, 4);
-        std::cout<<"[result] "<< DIRECTIONtoString[static_cast<int>(DIRECTION::fail)]<<"\n";
-        return DIRECTIONtoString[static_cast<int>(DIRECTION::fail)];
-    }
+    eyes.push_back(cv::Rect(image.cols / 54 * 8, image.rows / 36 * 12, image.cols / 54 * 18, image.rows / 36 * 12));
+    eyes.push_back(cv::Rect(image.cols / 54 * 31, image.rows / 36 * 12, image.cols / 54 * 18, image.rows / 36 * 12));
 
     //3. calculate pupilVector
     cv::Point pupilCenter, gazeCenter;
     cv::Point avgVector = cv::Point(0, 0);//Rt & Lt 's avg vector
     cv::Mat pupilRoi, gazeRoi;;
+    int failCount = 0;
 
-    for (auto& eye : eyes) {
+    for (auto& eye : eyes) {//2개의 눈
         cv::Mat partialEye = image(eye);//detected eye region
 
         //3-1. get pupilRoi by color threshold
@@ -233,11 +176,9 @@ std::string eyeDirectionFinder::findDirection(cv::Mat image) {
         //3-2. judge spielmann by using pupilRoi's brightness
         if (sum(pupilRoi)[0] == 0) {
             if (eye.x < image.cols / 2) {
-                std::cout << "[result] " << DIRECTIONtoString[static_cast<int>(DIRECTION::sr)] << "\n";
                 return DIRECTIONtoString[static_cast<int>(DIRECTION::sr)];
             }
             else {
-                std::cout << "[result] " << DIRECTIONtoString[static_cast<int>(DIRECTION::sl)] << "\n";
                 return DIRECTIONtoString[static_cast<int>(DIRECTION::sl)];
             }
         }
@@ -245,31 +186,29 @@ std::string eyeDirectionFinder::findDirection(cv::Mat image) {
         //3-3. get gazeRoi by color threshold
         cv::inRange(partialEye, MIN_SCALAR_GAZE, MAX_SCALAR_GAZE, gazeRoi);
 
-
         //3-4. get centerPoint of pupilRoi
-        std::cout << "calculating center of pupil...\n";
         pupilCenter = getCenterPoint(pupilRoi);
-        if (pupilCenter.x == -1) {//if cannot check center of pupil
-            return DIRECTIONtoString[static_cast<int>(DIRECTION::fail)];
-        }
-
-        //3-5. get centerPoitn of gazeRoi
-        std::cout << "calculating center of gaze...\n";
         gazeCenter = getCenterPoint(gazeRoi);
-        if (gazeCenter.x == -1) {
-            return DIRECTIONtoString[static_cast<int>(DIRECTION::fail)];
+        if (pupilCenter.x == -1 || gazeCenter.x == -1) {//if cannot check center of pupil
+            failCount++;
+            continue;
         }
 
         //3-6. calculate pupilVector & save each vector for avgVector
         cv::Point vector = cv::Point(pupilCenter.x - gazeCenter.x, gazeCenter.y - pupilCenter.y);//주의_사분면기준임.
-        std::cout << "each vector: " << vector << "\n";
+        //std::cout << "each vector: " << vector << "\n";
         avgVector.x += vector.x;
         avgVector.y += vector.y;
     }
 
     //4. get avgPupilVector about two eyes.
+    if (failCount == 2)
+        return DIRECTIONtoString[static_cast<int>(DIRECTION::fail)];
+    
+    if (failCount == 1)
+        avgVector *= 2;
     avgVector.x /= 2;
     avgVector.y /= 2;
-    std::cout << "avg vector: " << avgVector << "\n";
+
     return DIRECTIONtoString[findDirectionByVector(avgVector)];
 };

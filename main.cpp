@@ -9,44 +9,38 @@
 #include <sstream>
 #include "utils.h"
 #include <time.h>
+#include <map>
 
 int main() {
-    const std::string dataPath = "data\\3_4";//3+4
-    const std::string harEyePath = "C:/Program Files/opencv/sources/data/haarcascades/haarcascade_eye_tree_eyeglasses.xml";
-    const std::string harFacePath = "C:/Program Files/opencv/sources/data/haarcascades/haarcascade_frontalface_alt2.xml";
-    cv::Mat image;
-    std::string result;
-    int noDup = 0;
-
-    eyeDirectionFinder finder = eyeDirectionFinder(harEyePath);
+    //****test****
+    const std::string dataPath = "trainImage/";
+    std::vector<std::vector<std::string>> answers = std::vector<std::vector<std::string>>(12);
+    const std::string DIRECTIONtoString[12] = { "fail", "ur", "u", "ul", "r", "p", "l", "dr", "d", "dl", "sr", "sl" };//lookup table
+    std::map < std::string, int > StringtoDIRECTION = std::map < std::string, int >({
+        {"fail", 0}, {"ur" , 1}, {"u" , 2}, {"ul" , 3}, {"r" , 4}, {"p" , 5}, {"l" , 6}, {"dr" , 7}, {"d" , 8}, {"dl" , 9}, {"sr" , 10}, {"sl" , 11}
+        });
     for (const auto& entry : std::filesystem::directory_iterator(dataPath)) {
         std::string contentName = entry.path().filename().string();
         std::vector<std::string> fileNameElement = split(contentName, '_');
-
-        //get only JPG
-        const auto ext = entry.path().extension();
-        if (ext == ".jpg" || ext == ".JPG")
-            image = std::move(cv::imread(entry.path().string()));
-        else
-            continue;
-
-        result = finder.findDirection(image);
-        if (result == "fail") {//check fail
-            std::cout << "final result is fail\n";
-        }
-
-        //handle result
-        if (fileNameElement.size() > 2) {
-            std::cout << fileNameElement[1] + "_" + std::to_string(noDup)+ "_" + result<<"\n";
-            //cv::imwrite(fileNameElement[1] + std::to_string(noDup) + "_" + std::to_string(noDup)+"_" + result + ".JPG", image);
-            //printImage(fileNameElement[1] + "_" + result, image, 4);
-        } else {//형식에 맞지않는 파일이름인 경우
-            std::cout << split(fileNameElement[0], '.')[0] +"_" + std::to_string(noDup) + "_" + result << "\n";
-            //cv::imwrite(split(fileNameElement[0], '.')[0] + "_"+std::to_string(noDup) + "_" + result + ".JPG", image);
-            //printImage(split(fileNameElement[0], '.')[0] + "_" + result, image, 4);
-        }
-        noDup++;
+        answers[StringtoDIRECTION[split(fileNameElement[1], '.')[0]]].push_back(contentName);
     }
+
+    const std::string harEyePath = "C:/Program Files/opencv/sources/data/haarcascades/haarcascade_eye_tree_eyeglasses.xml";
+    eyeDirectionFinder finder = eyeDirectionFinder(harEyePath);
+
+    for (int i = 1; i < 12; i++) {//fill...sl
+        auto& element = answers[i];
+        int totalLen = element.size();
+        int correct = 0;
+        std::cout << DIRECTIONtoString[i] << "(" << element.size() << "개)" << "를 테스트하는중...";
+        for (auto& elem : element) {
+            if (finder.findDirection(cv::imread(dataPath + elem)) == DIRECTIONtoString[i])
+                correct++;
+        }
+        std::cout << " 결과: " << correct << "/" << totalLen << " (" << float(correct) / totalLen * 100 << "%)\n";
+    }
+
+    //****test****
     std::cout << "\nFinish!\n";
     return 0;
 }
