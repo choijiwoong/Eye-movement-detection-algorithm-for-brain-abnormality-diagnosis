@@ -1,17 +1,90 @@
 # Eye-movement-detection-algorithm-for-brain-abnormality-diagnosis
-All tools are in utils.h
 
-eyeDetectorRoi is tool for making eye roi image by using face picture.
-you can get result Mat image by calling .detect(cv::Mat image) method.
-By using harrcascade classifier, it will return proper roi image or empty image when it fails.
+**Affiliation:**  
+CHOI JIWOONG, Student Researcher at Medical Device R&D Lab, Gachon University College of Medicine  
+Collaborated with Ophthalmology Professor at Seoul National University Bundang Hospital
 
-eyeDirectionFinder is tool for getting nine gaze direction by using eye roi image.
-you can get nine gaze direction by calling .findDirection(cv::Mat image) method.
-By using harrcascade classifier and gaze vector, it will return proper direction as string.
+---
 
-if you want to get gaze vector, you can use avgVector(variable) in eyeDirectionFinder::findDirection.
-You should enter path of c++ opencv harrcascade classifier. 
-check main.cpp for example.
+## Project Overview
 
-[Abstract]
-Dizziness, which occurs when there is an abnormality in the inner ear or brain, 25% of the adult population experiences vertigo, and half of them experience difficulty in physical activity or daily life due to dizziness. Since it is impossible to directly identify abnormalities in the inner ear or brain, early diagnosis through eye movement observation is important. However, it takes a considerable amount of time for a patient to timely diagnose, treat, and prevent a disease because professional equipment such as a video ocular diagram and Frenzel glasses are required for diagnosis. In addition, in the case of children aged 3-4 years, who develop binocular vision the fastest, eye movement diseases such as strabismus can cause permanent damage, but cooperation with the examination process is difficult. In this paper, we propose and compare an effective image processing algorithm that can measure eye movement in children and an algorithm using machine learning focusing on the use in general cameras without speialized equipment. Using this, it is expected that strabismus can be diagnosed and treated early by early diagnosis and treatment of inner ear or brain abnormalities, and simple eye movement measurement in children.
+This project presents an image processing algorithm to detect eye movement for early diagnosis of brain and inner ear abnormalities, such as vertigo and strabismus, particularly focusing on children. Early diagnosis is critical because conventional diagnosis requires specialized equipment (e.g., video oculography, Frenzel glasses) and cooperation from patients, which is difficult for young children.
+
+Our algorithm uses general cameras without specialized hardware and applies Haar Cascade classifiers and gaze vector analysis to detect eye regions and estimate gaze direction.
+
+---
+
+## Abstract
+
+Dizziness caused by abnormalities in the inner ear or brain affects approximately 25% of adults, and half of these individuals suffer difficulties in daily life. Direct diagnosis is challenging, so observing eye movements is essential for early detection. However, diagnosis currently requires professional devices and patient cooperation, which is especially hard for young children (aged 3-4), who are at risk of permanent damage from eye movement disorders such as strabismus.
+
+This project proposes an effective image processing algorithm and machine learning approach to measure eye movement using ordinary cameras, facilitating early diagnosis and treatment.
+
+---
+
+## Project Structure
+
+- `README.md` (this file)  
+- `Untitled14.ipynb` — Testing notebook  
+- `eval.cpp` — Evaluation of detection accuracy on dataset  
+- `main.cpp` — Main testing program  
+- `trainImage 세트별 데이터 코드.cpp` — Code for handling dataset by sets  
+- `utils.cpp` — Utility function implementations  
+- `utils.h` — Utility function and class declarations  
+
+---
+
+## Key Components
+
+### 1. **eyeDetectorRoi**  
+- Extracts eye Region of Interest (ROI) from a face image using Haar Cascade classifiers.  
+- Method: `.detect(cv::Mat image)` returns a cropped Mat image of the eye ROI or an empty image if detection fails.  
+- Handles exception cases by detecting the face first if eye detection fails.  
+
+### 2. **eyeDirectionFinder**  
+- Determines one of nine gaze directions (e.g., up-right, left, center) from the eye ROI image.  
+- Method: `.findDirection(cv::Mat image)` returns gaze direction as a string.  
+- Uses pupil and gaze color thresholds and vector calculations to estimate gaze direction.  
+- Provides access to the average gaze vector used in the detection.  
+
+---
+
+## Usage Example
+
+- Prepare Haar cascade classifier XML files (e.g., `haarcascade_eye_tree_eyeglasses.xml`).  
+- Initialize `eyeDetectorRoi` and `eyeDirectionFinder` with the classifier path.  
+- Use `.detect()` to extract eye ROI from a face image.  
+- Use `.findDirection()` to obtain the gaze direction from the eye ROI.
+
+Refer to `main.cpp` and `eval.cpp` for implementation details and examples.
+
+---
+
+## Example Output (from evaluation)
+
+For each gaze direction label (e.g., "ur", "dl"), the program tests detection accuracy on corresponding images and outputs results such as:  
+```
+ur(100 images) Testing... Result: 95/100 (95%)
+dl(100 images) Testing... Result: 90/100 (90%)
+...
+Finish!
+```
+
+
+---
+
+## Dependencies
+
+- OpenCV (with `objdetect`, `highgui`, and `imgproc` modules)  
+- C++17 (for `<filesystem>`)  
+
+---
+
+## Contact
+
+If you have questions or want to collaborate, please contact the Medical Device R&D Lab, Gachon University College of Medicine.
+
+---
+
+Thank you for your interest in this eye movement detection algorithm project aimed at improving early diagnosis for brain and inner ear abnormalities.
+
